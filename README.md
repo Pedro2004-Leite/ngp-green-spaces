@@ -1,6 +1,6 @@
 # NGP Green Spaces — Guia de Uso no Windows
 
-Guia prático para criar datasets customizados e gerar renders NeRF de espaços ao ar livre com **Instant-NGP** no Windows.
+Guia prático para criar datasets customizados e gerar renders NeRF com **Instant-NGP** no Windows. O foco principal deste projeto são **espaços interiores** (salas, corredores, átrios), com notas adicionais para espaços ao ar livre.
 
 ---
 
@@ -112,13 +112,17 @@ instant-ngp.exe data\nerf\fox
 
 ## Parametro aabb_scale
 
-O parametro mais importante para espacos ao ar livre. Deve ser uma potencia de 2 (1, 2, 4, 8, ..., 128).
+O parametro mais importante para a qualidade do NeRF. Deve ser uma potencia de 2 (1, 2, 4, 8, ..., 128).
 
 | Cenario | aabb_scale recomendado |
 |---|---|
 | Objeto pequeno / cena sintetica | 1 |
-| Interior com fundo visivel | 16–32 |
+| Divisao pequena (quarto, escritorio) | 4–8 |
+| Divisao grande / sala com janelas | 16 |
+| Interior amplo (corredor, atrio) | 32 |
 | Exterior / espaco ao ar livre | 64–128 |
+
+Para espaços interiores, **começar com `aabb_scale 16`** e ajustar: se o modelo parecer cortado, aumentar; se houver muito ruido no fundo, diminuir.
 
 Pode ser editado diretamente no `transforms.json` sem re-correr o COLMAP:
 
@@ -150,6 +154,121 @@ Pode ser editado diretamente no `transforms.json` sem re-correr o COLMAP:
   --mask_categories person car
   ```
   (requer Detectron2 instalado)
+
+---
+
+## Dicas especificas para Espacos Interiores
+
+### Captura
+
+- Percorrer o espaco de forma **sistematica e sobreposta** — cada ponto do espaco deve aparecer em pelo menos 3 a 5 fotografias de angulos diferentes
+- Incluir **vistas de canto** (olhar para os cantos da sala) para ajudar o COLMAP a triangular pontos de referencia
+- Evitar fotografar **diretamente para janelas** — a diferenca de exposicao entre interior e exterior confunde o modelo; se inevitavel, ativar `n_extra_learnable_dims`
+- Fotografar a **mesma area de multiplas alturas** (agachado, normal, levantado) melhora a reconstrucao 3D
+- Superficies **monocromaticas lisas** (parede branca, teto uniforme) sao dificeis para o COLMAP — garantir que existem objetos ou detalhes visiveis no enquadramento
+
+### Processamento COLMAP
+
+Para fotografias de interiores, preferir o matcher `exhaustive` (nao sequencial):
+
+```bat
+python Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py ^
+  --colmap_matcher exhaustive ^
+  --run_colmap ^
+  --aabb_scale 16
+```
+
+Usar `sequential` apenas se as fotos foram tiradas numa trajetoria continua e ordenada (ex: video).
+
+### Parametros recomendados no `transforms.json` para interiores
+
+```json
+{
+    "aabb_scale": 16,
+    "scale": 0.33,
+    "offset": [0.5, 0.5, 0.5],
+    "n_extra_learnable_dims": 16
+}
+```
+
+O `n_extra_learnable_dims: 16` e particularmente util em interiores com iluminacao artificial variavel (luzes direcionais, zonas de sombra).
+
+---
+
+## Mapa de Iluminância para Colocação de Plantas
+
+Depois de exportar a mesh pelo GUI do Instant-NGP (secção **NeRF → Mesh**), é possível gerar
+automaticamente um mapa de iluminância top-down para identificar as melhores zonas para plantas.
+
+### Dependências
+
+```bat
+pip install trimesh pillow matplotlib numpy scipy
+```
+
+### Opcao A — Mapa de luminância relativa (sem medicoes)
+
+Usa a textura da mesh como proxy de iluminância. Funciona sem equipamento adicional.
+
+```bat
+python scripts\illuminance_map.py --mesh dataset\mesh.obj
+```
+
+Gera `illuminance_map.png` — mapa de calor com a luminância relativa de cada zona.
+
+### Opcao B — Mapa calibrado em lux (com luximetro)
+
+Mede a iluminância real em alguns pontos do espaço com um luxímetro (ou app de smartphone)
+e regista as posicoes normalizadas [0–1] num CSV:
+
+```csv
+x,y,lux
+0.15,0.20,850
+0.50,0.10,1200
+0.85,0.80,180
+```
+
+- `x`, `y` — posicao no mapa, de 0 a 1 (origem: canto superior esquerdo)
+- `lux` — valor medido no local correspondente
+
+```bat
+python scripts\illuminance_map.py ^
+  --mesh dataset\mesh.obj ^
+  --lux_refs scripts\lux_refs_example.csv ^
+  --output iluminancia_lux.png
+```
+
+Gera dois ficheiros:
+- `iluminancia_lux.png` — mapa contínuo em lux
+- `iluminancia_lux_plantas.png` — mapa por zonas de aptidão para plantas
+
+| Zona | Lux | Plantas adequadas |
+|---|---|---|
+| Sem luz | < 50 | — |
+| Baixa luminosidade | 50–250 | Sansevieria, Zamioculcas, Aglaonema |
+| Luminosidade média | 250–1000 | Ficus, Dracena, Pothos |
+| Alta luminosidade | > 1000 | Suculentas, cactos, ervas aromáticas |
+
+### Opcao C — Simulacao fisica com Blender (mais precisa)
+
+Requer Blender 3.x instalado. Simula iluminação física com Cycles e gera mapa HDR.
+
+```bat
+blender --background --python scripts\blender_illuminance.py -- ^
+  --mesh dataset\mesh.obj ^
+  --output iluminancia_blender.png ^
+  --resolution 1024 ^
+  --samples 256
+```
+
+Argumentos opcionais:
+- `--sun_strength 5.0` — intensidade da luz solar (W/m²·sr)
+- `--samples 128` — amostras Cycles (mais amostras = menos ruido, mais lento)
+
+> **Nota sobre precisao:** as opcoes A e B baseiam-se na aparencia da textura capturada,
+> que mistura albedo do material com iluminacao real. Sao proxies razoaveis para iluminacao
+> relativa entre zonas, mas nao substituem um estudo luminotecnico rigoroso.
+> A opcao C simula fisicamente a propagacao da luz na geometria reconstruida.
 
 ---
 
