@@ -33,7 +33,7 @@ Coloca o ficheiro de video na pasta de dados e corre:
 
 ```bat
 cd C:\caminho\para\pasta-do-dataset
-python C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py ^
+python C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py ^
   --video_in video.mp4 ^
   --video_fps 2 ^
   --run_colmap ^
@@ -54,7 +54,7 @@ Alternativa ao COLMAP usando ARKit, mais robusta para cenas sem texturas ou com 
 5. Correr o script de conversao:
 
 ```bat
-cd C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
+cd C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
 python scripts\record3d2nerf.py --scene C:\caminho\para\path\to\data
 ```
 
@@ -77,7 +77,7 @@ Coloca as fotos numa subpasta chamada `images` e corre:
 
 ```bat
 cd C:\caminho\para\pasta-do-dataset
-python C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py ^
+python C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py ^
   --colmap_matcher exhaustive ^
   --run_colmap ^
   --aabb_scale 128
@@ -95,7 +95,7 @@ O script gera automaticamente um ficheiro `transforms.json` na pasta atual.
 ### Interface grafica (GUI)
 
 ```bat
-cd C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
+cd C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
 instant-ngp.exe C:\caminho\para\pasta-do-dataset
 ```
 
@@ -104,7 +104,7 @@ Ou simplesmente arrastar a pasta do dataset para a janela do `instant-ngp.exe`.
 ### Exemplo com o dataset incluido (fox)
 
 ```bat
-cd C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
+cd C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
 instant-ngp.exe data\nerf\fox
 ```
 
