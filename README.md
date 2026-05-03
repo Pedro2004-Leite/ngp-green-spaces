@@ -1,1 +1,205 @@
-Instant-NGP pipeline for 3D reconstruction of living rooms and backyards, enabling light simulation and data-driven plant placement recommendations.
+# NGP Green Spaces — Guia de Uso no Windows
+
+Guia prático para criar datasets customizados e gerar renders NeRF de espaços ao ar livre com **Instant-NGP** no Windows.
+
+---
+
+## Pre-requisitos
+
+- GPU NVIDIA RTX (3000/4000 series recomendado)
+- Python 3.8 ou superior — [download aqui](https://www.python.org/downloads/) (marcar "Add python.exe to PATH" durante a instalação)
+- O executável `instant-ngp.exe` está em `Instant-NGP-for-RTX-3000-and-4000/`
+
+> COLMAP e FFmpeg **nao precisam ser instalados manualmente no Windows** — sao descarregados automaticamente pelo script quando necessarios.
+
+---
+
+## Instalacao
+
+Instalar as dependencias Python a partir da pasta do instant-ngp:
+
+```bat
+cd Instant-NGP-for-RTX-3000-and-4000
+pip install -r requirements.txt
+```
+
+---
+
+## Criar um Dataset Customizado
+
+### Opcao A — A partir de um video
+
+Coloca o ficheiro de video na pasta de dados e corre:
+
+```bat
+cd C:\caminho\para\pasta-do-dataset
+python C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py ^
+  --video_in video.mp4 ^
+  --video_fps 2 ^
+  --run_colmap ^
+  --aabb_scale 128
+```
+
+- `--video_fps 2` — extrai 2 frames por segundo; ajustar para obter 50-150 imagens no total
+- `--aabb_scale 128` — recomendado para espacos ao ar livre com fundo extenso
+
+### Opcao B — A partir de um iPhone (Record3D)
+
+Alternativa ao COLMAP usando ARKit, mais robusta para cenas sem texturas ou com padroes repetitivos. Requer iPhone 12 Pro ou mais recente.
+
+1. Instalar a app [Record3D](https://record3d.app/) no iPhone
+2. Gravar o espaco e exportar com o formato **"Shareable/Internal format (.r3d)"**
+3. Enviar o ficheiro `.r3d` para o computador
+4. Renomear a extensao de `.r3d` para `.zip` e descomprimir — obtem-se uma pasta `path/to/data`
+5. Correr o script de conversao:
+
+```bat
+cd C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
+python scripts\record3d2nerf.py --scene C:\caminho\para\path\to\data
+```
+
+> Se gravaste em modo **landscape** (horizontal), adicionar a flag `--rotate`:
+> ```bat
+> python scripts\record3d2nerf.py --scene C:\caminho\para\path\to\data --rotate
+> ```
+
+6. Correr o NeRF:
+
+```bat
+instant-ngp.exe C:\caminho\para\path\to\data
+```
+
+---
+
+### Opcao C — A partir de fotografias
+
+Coloca as fotos numa subpasta chamada `images` e corre:
+
+```bat
+cd C:\caminho\para\pasta-do-dataset
+python C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py ^
+  --colmap_matcher exhaustive ^
+  --run_colmap ^
+  --aabb_scale 128
+```
+
+- `--colmap_matcher exhaustive` — usar quando as fotos nao tem uma ordem sequencial
+- `--colmap_matcher sequential` — usar quando as fotos foram tiradas em sequencia (como frames de video)
+
+O script gera automaticamente um ficheiro `transforms.json` na pasta atual.
+
+---
+
+## Correr o NeRF
+
+### Interface grafica (GUI)
+
+```bat
+cd C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
+instant-ngp.exe C:\caminho\para\pasta-do-dataset
+```
+
+Ou simplesmente arrastar a pasta do dataset para a janela do `instant-ngp.exe`.
+
+### Exemplo com o dataset incluido (fox)
+
+```bat
+cd C:\Github\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
+instant-ngp.exe data\nerf\fox
+```
+
+---
+
+## Parametro aabb_scale
+
+O parametro mais importante para espacos ao ar livre. Deve ser uma potencia de 2 (1, 2, 4, 8, ..., 128).
+
+| Cenario | aabb_scale recomendado |
+|---|---|
+| Objeto pequeno / cena sintetica | 1 |
+| Interior com fundo visivel | 16–32 |
+| Exterior / espaco ao ar livre | 64–128 |
+
+Pode ser editado diretamente no `transforms.json` sem re-correr o COLMAP:
+
+```json
+{
+    "aabb_scale": 128,
+    "scale": 0.33,
+    "offset": [0.5, 0.5, 0.5],
+    ...
+}
+```
+
+---
+
+## Dicas para bons resultados
+
+- **50 a 150 imagens** e o intervalo ideal
+- Evitar **blur de movimento** e **blur de desfoque** — tratar a captura como fotogrametria
+- Todos os objetos devem estar **estaticos** durante a captura
+- Lentes **grande angular** dao melhores resultados (ex: modo wide do iPhone)
+- O modelo deve convergir nos primeiros **20 segundos** — se nao convergir, o problema e nos dados
+- Verificar o alinhamento das cameras com "Visualize cameras" + "Visualize unit cube" no GUI
+- Para iluminacao/exposicao inconsistente entre fotos, adicionar ao `transforms.json`:
+  ```json
+  { "n_extra_learnable_dims": 16 }
+  ```
+- Para remover objetos dinamicos (pessoas, carros), usar o argumento:
+  ```bat
+  --mask_categories person car
+  ```
+  (requer Detectron2 instalado)
+
+---
+
+## Guardar e Carregar um Modelo Treinado
+
+No GUI, usar a secao **Snapshot**:
+- **Save** — guarda o modelo treinado
+- **Load** — carrega um modelo previamente guardado
+
+---
+
+## Controlos do GUI
+
+| Tecla | Acao |
+|---|---|
+| WASD | Mover frente / esquerda / tras / direita |
+| Espaco / C | Subir / descer |
+| T | Pausar / retomar treino |
+| Tab | Mostrar / esconder menu |
+| Shift+R | Reset da camara |
+| [ ] | Ver frame anterior / seguinte do dataset |
+| 1-8 | Mudar modo de render |
+
+---
+
+## Estrutura de Pastas Esperada
+
+```
+meu-dataset/
+  images/          <- fotos ou frames extraidos do video
+  transforms.json  <- gerado pelo colmap2nerf.py
+```
+
+---
+
+## Referencia Rapida de Comandos
+
+```bat
+# 1. Instalar dependencias
+pip install -r Instant-NGP-for-RTX-3000-and-4000\requirements.txt
+
+# 2a. Processar video
+python Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py --video_in video.mp4 --video_fps 2 --run_colmap --aabb_scale 128
+
+# 2b. Processar imagens
+python Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py --colmap_matcher exhaustive --run_colmap --aabb_scale 128
+
+# 2c. Processar dados do Record3D (iPhone)
+python Instant-NGP-for-RTX-3000-and-4000\scripts\record3d2nerf.py --scene C:\caminho\para\dados-r3d
+
+# 3. Correr o NeRF
+Instant-NGP-for-RTX-3000-and-4000\instant-ngp.exe C:\caminho\para\pasta-do-dataset
+```
