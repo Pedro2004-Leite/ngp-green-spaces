@@ -4,6 +4,57 @@ Guia prático para criar datasets customizados e gerar renders NeRF com **Instan
 
 ---
 
+## Exemplo Real — [Convento de Cristo, Tomar](https://www.patrimoniomundialdocentro.pt/pt/patrimonio/convento-de-cristo-de-tomar/)
+
+![Convento de Cristo, Tomar](https://www.patrimoniomundialdocentro.pt/imagens/patrimonio/top_convento_de_cristo_de_tomar_5b05f68f39dcf.jpg)
+
+> **Convento de Cristo** (Tomar, Portugal) — Património Mundial da UNESCO desde 1983.
+> Fundado em 1160 pelos Templários, o complexo combina estilos românico, gótico, manuelino e renascentista.
+> A Charola (rotunda templária) e a famosa Janela do Capítulo são dois dos seus espaços interiores mais icónicos.
+
+### Pipeline utilizado
+
+**1. Extracção de frames e reconstrução COLMAP** a partir de um vídeo gravado no interior:
+
+```bat
+python C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\scripts\colmap2nerf.py ^
+  --video_in "C:\remote\ngp-green-spaces\videos\convento_cristo.mp4" ^
+  --video_fps 2 ^
+  --run_colmap ^
+  --colmap_camera_model SIMPLE_RADIAL ^
+  --aabb_scale 8 ^
+  --overwrite
+```
+
+> **Nota:** O modelo `OPENCV` (padrão) falhou neste caso — apenas 2 frames foram reconstruídas.
+> `SIMPLE_RADIAL` (apenas k1) é mais robusto para vídeo de telemóvel sem calibração prévia.
+
+**Resultado:**
+| Parâmetro | Valor |
+|---|---|
+| Frames extraídas | 100 |
+| Frames registadas pelo COLMAP | 100 / 100 |
+| Bundle adjustment | Convergido (`CONVERGENCE`) |
+| Distorção k1 | 0.028 (razoável) |
+| Focal length | 947 px (plausível para portrait 576×1024) |
+| aabb_scale usado | 8 (espaço interior compacto) |
+
+**2. Correr o NeRF:**
+
+```bat
+C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\instant-ngp.exe ^
+  C:\remote\ngp-green-spaces\videos
+```
+
+### Lições aprendidas
+
+- Para **vídeo de telemóvel** (portrait, sem calibração), usar `--colmap_camera_model SIMPLE_RADIAL`
+- O modelo `OPENCV` pode sobre-ajustar os parâmetros de distorção e produzir resultados degenerados (k1 > 1)
+- 2 fps num vídeo de ~50 segundos gera ~100 frames — dentro do intervalo ideal
+- `aabb_scale 8` adequado para salas e espaços interiores compactos
+
+---
+
 ## Pre-requisitos
 
 - GPU NVIDIA RTX (3000/4000 series recomendado)
