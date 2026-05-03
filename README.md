@@ -42,8 +42,8 @@ python C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\scripts\colm
 **2. Correr o NeRF:**
 
 ```bat
-C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000\instant-ngp.exe ^
-  C:\remote\ngp-green-spaces\videos
+cd C:\remote\ngp-green-spaces\Instant-NGP-for-RTX-3000-and-4000
+instant-ngp.exe ..\videos\transforms.json
 ```
 
 ### Lições aprendidas
